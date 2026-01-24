@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>NHANES Helper</title>
+        <link rel="icon" type="image/x-icon" href="favicon.ico">
+    </head>
+    <body>
+        <svg id="plot" width="1000" height="500" style="border: 1px solid black;">
+            <g id="canvas">
+                <g id="points"></g>
+                <path id="trendline"></path>
+                <path id="confidence-interval"></path>
+            </g>
+            <g id="x-axis"></g>
+            <g id="y-axis"></g>
+            
+        </svg>
+        
+        <form>
+            <fieldset>
+                <legend>Settings</legend>
+                <label for="x-variables">X Variable:</label>
+                <select name="x-variables" id="x-variables"></select>
+                <br>
+                <label for="y-variables">Y Variable:</label>
+                <select name="y-variables" id="y-variables"></select>
+                <br>
+                <button type="button" id="plot-button">Plot</button>
+            </fieldset>
+        </form>
+
+        <script type="module">
+            import * as d3 from "https://esm.sh/d3";
+            import * as d3Regression from "https://esm.sh/d3-regression";
+
+            // Margins and dimensions
+            const margin = {top: 30, right: 30, bottom: 30, left: 30};
+            const width = d3.select("#plot").attr("width");
+            const height = d3.select("#plot").attr("height");
+
+            // Fix offsets
+            d3.select("#canvas")
+                .attr("transform", "translate(" + margin.left + ", " + margin.right + ")");
+            d3.select("#x-axis")
+                .attr("transform", "translate(" + margin.left + ", " + (height - margin.top) + ")");
+            d3.select("#y-axis")
+                .attr("transform", "translate(" + margin.left + ", " + margin.bottom + ")");
+            
+            // Read data synchronously
+            const data = await d3.csv("merged.csv");
+
+            // Setup dropdown options
+            function setupVariableDropdown(selectSelector) {
+                d3.select(selectSelector)
+                    .selectAll("option")
+                    .data(Object.keys(data[0]))
+                    .join("option")
+                    .attr("value", function(d, i) {
+                        return d;
+                    })
+                    .text(function(d, i) {
+                        return d;
+                    });
+            }
+            setupVariableDropdown("#x-variables")
+            setupVariableDropdown("#y-variables")
+
+            // Initialize dropdown defaults
+            d3.select("#x-variables").property("value", "RIDAGEYR");
+            d3.select("#y-variables").property("value", "BPXOPLS1");
+
+            // Perform the data plot with given options
+            function plot() {
+                // Read selected x and y variables
+                const xVariable = d3.select("#x-variables").property("value");
+                const yVariable = d3.select("#y-variables").property("value");
+
+                // Get cleaned version of data
+                const cleanData = data.filter(d =>
+                    !isNaN(parseInt(d[xVariable])) &&
+                    !isNaN(parseInt(d[yVariable]))
+                );
+                // Need to actually parse the ints, and make a new table that has just two cols
+                // This will make bootstrapping simpler
+                
+                // Setup x-axis
+                const scaleX = d3.scaleLinear()
+                    .domain(d3.extent(cleanData, function(d) {
+                        return parseInt(d[xVariable]);
+                    }))
+                    .range([0, width - margin.left - margin.right])
+                    .nice();
+                const axisXFunc = d3.axisBottom(scaleX);
+                d3.select("#x-axis")
+                    .call(axisXFunc);
+                
+                // Setup y-axis
+                const scaleY = d3.scaleLinear()
+                    .domain(d3.extent(cleanData, function(d) {
+                        return parseInt(d[yVariable]);
+                    }))
+                    .range([height - margin.top - margin.bottom, 0])
+                    .nice();
+                const axisYFunc = d3.axisLeft(scaleY);
+                d3.select("#y-axis")
+                    .call(axisYFunc);
+                
+                // Plot points
+                d3.select("#points")
+                    .selectAll("circle")
+                    .data(cleanData)
+                    .join("circle")
+                    .attr("r", 1.5)
+                    .attr("opacity", 0.5)
+                    .attr("cx", function(d) {
+                        return scaleX(parseInt(d[xVariable]))
+                    })
+                    .attr("cy", function(d) {
+                        return scaleY(parseInt(d[yVariable]))
+                    })
+                    .on("click", function(e, d) {
+                        console.log(d)
+                    });
+                
+                // Create trendline
+                const regressionGenerator = d3Regression.regressionLoess()
+                    .x(d => d[xVariable])
+                    .y(d => d[yVariable])
+                    .bandwidth(0.3);
+                d3.select("#trendline")
+                    .datum(regressionGenerator(cleanData))
+                    .attr("fill", "none")
+                    .attr("stroke", "red")
+                    .attr("stroke-width", 2)
+                    .attr("d", d3.line()
+                        .x(d => scaleX(d[0]))
+                        .y(d => scaleY(d[1]))
+                    );
+
+                // Create confidence interval
+                
+            }
+            
+            // Perform an initial plot
+            plot();
+            
+            // Setup plot button click event
+            d3.select("#plot-button")
+                .on("click", plot);
+        </script>
+    </body>
+</html>
