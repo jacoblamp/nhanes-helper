@@ -7,6 +7,9 @@
     </head>
     <body>
         <svg id="plot" width="1000" height="500" style="border: 1px solid black;">
+            <text id="title" style="text-anchor: middle; dominant-baseline: middle; transform: translate(50%, 15px);"></text>
+            <text id="x-label" style="text-anchor: middle; dominant-baseline: middle; transform: translate(50%, calc(100% - 15px));"></text>
+            <text id="y-label" style="text-anchor: middle; dominant-baseline: middle; transform: translate(15px, 50%) rotate(-90deg);"></text>
             <g id="canvas">
                 <g id="points"></g>
                 <path id="trendline"></path>
@@ -14,7 +17,6 @@
             </g>
             <g id="x-axis"></g>
             <g id="y-axis"></g>
-            
         </svg>
         
         <form>
@@ -35,51 +37,75 @@
             import * as d3Regression from "https://esm.sh/d3-regression";
 
             // Margins and dimensions
-            const margin = {top: 30, right: 30, bottom: 30, left: 30};
+            const margin = {top: 30, right: 20, bottom: 45, left: 50};
             const width = d3.select("#plot").attr("width");
             const height = d3.select("#plot").attr("height");
 
             // Fix offsets
             d3.select("#canvas")
-                .attr("transform", "translate(" + margin.left + ", " + margin.right + ")");
+                .style("transform", `translate(${margin.left}px, ${margin.top}px)`)
             d3.select("#x-axis")
-                .attr("transform", "translate(" + margin.left + ", " + (height - margin.top) + ")");
+                .style("transform", `translate(${margin.left}px, ${height - margin.bottom}px)`)
             d3.select("#y-axis")
-                .attr("transform", "translate(" + margin.left + ", " + margin.bottom + ")");
+                .style("transform", `translate(${margin.left}px, ${margin.top}px)`)
             
             // Read data synchronously
             const data = await d3.csv("merged.csv");
 
             // Setup dropdown options
+            const fileNames = {};
+            Object.keys(data[0]).forEach(function(col) {
+                const parts = col.split("|");
+                const fileName = parts[0];
+                const variableName = parts[1];
+
+                if (fileNames[fileName] === undefined) {
+                    fileNames[fileName] = [];
+                }
+                fileNames[fileName].push(variableName);
+            });
+            
             function setupVariableDropdown(selectSelector) {
                 d3.select(selectSelector)
+                    .selectAll("optgroup")
+                    .data(Object.entries(fileNames))
+                    .join("optgroup")
+                    .attr("label", d => d[0])
                     .selectAll("option")
-                    .data(Object.keys(data[0]))
+                    .data(d =>
+                        d[1].map(
+                            v => ({
+                                fileName: d[0],
+                                variableName: v
+                            })
+                        )
+                    )
                     .join("option")
-                    .attr("value", function(d, i) {
-                        return d;
-                    })
-                    .text(function(d, i) {
-                        return d;
-                    });
+                    .attr("value", d => `${d.fileName}|${d.variableName}`)
+                    .text(d => d.variableName);
             }
             setupVariableDropdown("#x-variables")
             setupVariableDropdown("#y-variables")
 
             // Initialize dropdown defaults
-            d3.select("#x-variables").property("value", "RIDAGEYR");
-            d3.select("#y-variables").property("value", "BPXOPLS1");
+            d3.select("#x-variables").property("value", "Demographic Variables and Sample Weights|Age in years at screening");
+            d3.select("#y-variables").property("value", "Blood Pressure - Oscillometric Measurements|Pulse - 1st oscillometric reading");
 
             // Perform the data plot with given options
             function plot() {
                 // Read selected x and y variables
-                const xVariable = d3.select("#x-variables").property("value");
-                const yVariable = d3.select("#y-variables").property("value");
+                const xCol = d3.select("#x-variables").property("value");
+                const yCol = d3.select("#y-variables").property("value");
+
+                // Set title and axis labels
+                d3.select("#title").text(`${yCol.split("|")[1]} vs ${xCol.split("|")[1]}`);
+                d3.select("#x-label").text(xCol.split("|")[1]);
+                d3.select("#y-label").text(yCol.split("|")[1]);
 
                 // Get cleaned version of data
                 const cleanData = data.filter(d =>
-                    !isNaN(parseInt(d[xVariable])) &&
-                    !isNaN(parseInt(d[yVariable]))
+                    !isNaN(parseInt(d[xCol])) &&
+                    !isNaN(parseInt(d[yCol]))
                 );
                 // Need to actually parse the ints, and make a new table that has just two cols
                 // This will make bootstrapping simpler
@@ -87,7 +113,7 @@
                 // Setup x-axis
                 const scaleX = d3.scaleLinear()
                     .domain(d3.extent(cleanData, function(d) {
-                        return parseInt(d[xVariable]);
+                        return parseInt(d[xCol]);
                     }))
                     .range([0, width - margin.left - margin.right])
                     .nice();
@@ -98,7 +124,7 @@
                 // Setup y-axis
                 const scaleY = d3.scaleLinear()
                     .domain(d3.extent(cleanData, function(d) {
-                        return parseInt(d[yVariable]);
+                        return parseInt(d[yCol]);
                     }))
                     .range([height - margin.top - margin.bottom, 0])
                     .nice();
@@ -111,13 +137,13 @@
                     .selectAll("circle")
                     .data(cleanData)
                     .join("circle")
-                    .attr("r", 1.5)
+                    .attr("r", 2)
                     .attr("opacity", 0.5)
                     .attr("cx", function(d) {
-                        return scaleX(parseInt(d[xVariable]))
+                        return scaleX(parseInt(d[xCol]))
                     })
                     .attr("cy", function(d) {
-                        return scaleY(parseInt(d[yVariable]))
+                        return scaleY(parseInt(d[yCol]))
                     })
                     .on("click", function(e, d) {
                         console.log(d)
@@ -125,8 +151,8 @@
                 
                 // Create trendline
                 const regressionGenerator = d3Regression.regressionLoess()
-                    .x(d => d[xVariable])
-                    .y(d => d[yVariable])
+                    .x(d => d[xCol])
+                    .y(d => d[yCol])
                     .bandwidth(0.3);
                 d3.select("#trendline")
                     .datum(regressionGenerator(cleanData))
@@ -138,7 +164,7 @@
                         .y(d => scaleY(d[1]))
                     );
 
-                // Create confidence interval
+                // Create confidence intervals
                 
             }
             
