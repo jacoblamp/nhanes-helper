@@ -1,0 +1,69 @@
+/* Variables */
+:root {
+    --plot-margin-top: 30px;
+    --plot-margin-right: 20px;
+    --plot-margin-bottom: 45px;
+    --plot-margin-left: 50px;
+}
+
+/* Title and Axes Labels */
+#title, #x-label, #y-label {
+    text-anchor: middle;
+    dominant-baseline: middle;
+}
+#title {
+    transform: translate(50%, 15px);
+}
+#x-label {
+    transform: translate(50%, calc(100% - 15px));
+}
+#y-label {
+    transform: translate(15px, 50%) rotate(-90deg);
+}
+#canvas {
+    transform: translate(var(--plot-margin-left), var(--plot-margin-top));
+}
+#x-axis {
+    transform: translate(var(--plot-margin-left), calc(100% - var(--plot-margin-bottom)));
+}
+#y-axis {
+    transform: translate(var(--plot-margin-left), var(--plot-margin-top));
+}
+#trendline {
+    fill: none;
+    stroke: red;
+    stroke-width: 2;
+}
+
+/* Grid */
+html, body {
+    margin: 0;
+    height: 100%;
+}
+body {
+    display: grid;
+    grid-template-columns: 4fr 1fr 1fr;
+    grid-template-rows: 2fr 1fr;
+    grid-template-areas:
+        "plot properties lookup"
+        "settings properties lookup";
+}
+#plot {
+    grid-area: plot;
+    background-color: #FFFFFF;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+#settings {
+    grid-area: settings;
+    background-color: #EEEEEE;
+}
+#properties {
+    grid-area: properties;
+    background-color: #FFFFFF;
+}
+#lookup {
+    grid-area: lookup;
+    background-color: #EEEEEE;
+}
