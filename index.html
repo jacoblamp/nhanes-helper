@@ -34,11 +34,9 @@
         </form>
 
         <div id="properties">
-            <h1></h1>
         </div>
 
         <div id="lookup">
-            <h1></h1>
         </div>
 
         <script type="module">
@@ -53,11 +51,18 @@
             const plotMarginLeft = parseInt(rootStyle.getPropertyValue("--plot-margin-left"));
             
             // Read data synchronously
-            const data = await d3.csv("merged.csv");
+            const data = await d3.csv("merged.csv", row => {
+                const parsed = {};
+                for (const key in row) {
+                    const val = row[key].trim();
+                    parsed[key] = val === "" ? NaN : +val;
+                }
+                return parsed;
+            });
 
             // Setup dropdown options
             const fileNames = {};
-            Object.keys(data[0]).forEach(function(col) {
+            data.columns.forEach(function(col) {
                 const parts = col.split("|");
                 const fileName = parts[0];
                 const variableName = parts[1];
@@ -148,8 +153,34 @@
                     .selectAll("circle")
                     .data(cleanData, d => d["Sequence Number|Sequence Number"])
                     .join("circle")
-                    .on("click", function(e, d) {
-                        console.log(d)
+                    .on("click", function(e, clickedData) {
+                        d3.select("#properties").selectAll("*").remove();
+                        const divs = d3.select("#properties")
+                            .selectAll("div")
+                            .data(Object.entries(fileNames))
+                            .join("div");
+                        divs.append("h5")
+                            .text(d => d[0])
+                            .on("click", (e, d) => {
+                                const table = e.srcElement.parentElement.querySelector("table");
+                                table.hidden = !table.hidden;
+                            });
+                        const trs = divs.append("table")
+                            .attr("hidden", true)
+                            .selectAll("tr")
+                            .data(d =>
+                                d[1].map(
+                                    v => ({
+                                        fileName: d[0],
+                                        variableName: v
+                                    })
+                                )
+                            )
+                            .join("tr");
+                        trs.append("th")
+                            .text(d => d.variableName);
+                        trs.append("td")
+                            .text(d => clickedData[`${d.fileName}|${d.variableName}`]);
                     })
                     .transition()
                     .duration(500)
