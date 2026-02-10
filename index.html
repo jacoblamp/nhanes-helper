@@ -4,7 +4,9 @@
         <meta charset="UTF-8">
         <title>NHANES Helper</title>
         <link rel="icon" type="image/x-icon" href="favicon.ico">
-        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="styles/structure.css">
+        <link rel="stylesheet" href="styles/theme.css">
+        <link rel="stylesheet" href="styles/text.css">
     </head>
     <body>
         <svg id="plot">
@@ -159,13 +161,16 @@
                             .selectAll("div")
                             .data(Object.entries(fileNames))
                             .join("div");
-                        divs.append("h5")
+                        divs.append("table")
+                            .append("th")
+                            .classed("file-header", true)
                             .text(d => d[0])
                             .on("click", (e, d) => {
-                                const table = e.srcElement.parentElement.querySelector("table");
+                                const table = e.srcElement.parentElement.parentElement.querySelector(".hideable");
                                 table.hidden = !table.hidden;
                             });
                         const trs = divs.append("table")
+                            .classed("hideable", true)
                             .attr("hidden", true)
                             .selectAll("tr")
                             .data(d =>
@@ -187,10 +192,10 @@
                     .attr("r", 2)
                     .attr("opacity", 0.5)
                     .attr("cx", function(d) {
-                        return scaleX(parseInt(d[xCol]))
+                        return scaleX(d[xCol])
                     })
                     .attr("cy", function(d) {
-                        return scaleY(parseInt(d[yCol]))
+                        return scaleY(d[yCol])
                     });
                 
                 // Create trendline
